@@ -11,19 +11,17 @@ struct Position {
 
 // global function prototypes
 void PrintHeading();
-void Game(char table[][3]);
+void Game();
     void PrintBoard(char table[][3]);
-    void UpdateBoard(char currentTurn, int positionNum, int &numRounds, bool &invalidSpot, char table[][3]);
-        Position GetPosition(int position);
+    void ValidatePosition(int &positionNum, Position &currentPos, char table[][3]);
+    Position GetPosition(int positionNum);
     bool CheckForWinner(char &currentTurn, char table[][3]);
 bool PlayAgain();
-void ResetBoard(char table[][3]);
 void PrintOutro();
 
 /* ================================================================ */
 
 int main() {
-    char table[][3] = {{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}};
     bool createGame = true;
 
     PrintHeading();
@@ -31,12 +29,10 @@ int main() {
     // while loop to create a Game until the user does not want to play again
     while(createGame) {
         // create a single Game
-        Game(table);
+        Game();
 
         // check if the user wants to play another game
         createGame = PlayAgain();
-
-        ResetBoard(table);
     }
 
     PrintOutro();
@@ -61,16 +57,15 @@ void PrintHeading() {
 /*
     Game will create a single TicTacToe game that contains the functionality of updating the TicTacToe game board
     every round until a winner is found or is a tie based on the current board X and O placements.
-    Parameters:
-        table: the empty 2D array TicTacToe game board
 */
 
-void Game(char table[][3]) {
+void Game() {
+    char table[][3] = {{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}};
     char currentTurn = 'X';
-    int positionNum;
     int numRounds = 0;
+    int positionNum;
     bool gameFinished = false;
-    bool invalidSpot;
+    Position currentPos = {};
 
     // while the game is not finished, each iteration represents one round of the game
     while(!gameFinished) {
@@ -80,12 +75,13 @@ void Game(char table[][3]) {
 
         PrintBoard(table);
 
-        // prompt the user to enter their position to play
-        cout << endl << "         Play Position: ";
-        cin >> positionNum;
+        // get a position that is a valid placement
+        ValidatePosition(positionNum, currentPos, table);
 
-        // update the game board then check for a winner
-        UpdateBoard(currentTurn, positionNum, numRounds, invalidSpot, table);
+        // assign the position in the game board to the current turn
+        table[currentPos.row][currentPos.column] = currentTurn;
+
+        // check for a winner after each placement
         gameFinished = CheckForWinner(currentTurn, table);
 
         // if the game resulted in a winner being found within 9 rounds of plays the game is over
@@ -96,15 +92,15 @@ void Game(char table[][3]) {
 
         // if the game results in no winner within 9 rounds of plays the game is a tie
         if(!gameFinished && numRounds == 9) {
-            cout << endl << "        The game was a tie!" << endl;
+            cout << endl << "        The game was a tie!" << endl << endl;
             PrintBoard(table);
             gameFinished = true;
         }
 
         // change the currentTurn to the next player's turn
-        if(!invalidSpot && currentTurn == 'X')
+        if(currentTurn == 'X')
             currentTurn = 'O';
-        else if(!invalidSpot && currentTurn == 'O')
+        else
             currentTurn = 'X';
     }
 }
@@ -132,36 +128,46 @@ void PrintBoard(char table[][3]) {
 /* ================================================================ */
 
 /*
-    UpdateBoard updates the current game board based on whether the turn is X or O and the position the user
-    requested to make a play. This function performs error checking on if the requested position is a valid
-    placement to make a play.
+    ValidatePosition performs error checking on if the requested position is a valid entry and placement. The position
+    number entered must be an integer between the values of 1 - 9. This function does not return until a valid
+    placement is made on the game board.
     Parameters:
-        currentTurn: The current turn of X or O
-        positionNum: The requested play position the user chose (1 - 9 based on the 3x3 2D game board)
-        numRounds: The number of rounds the game has currently lasted (each play is one round)
-        invalidSpot: Flag to check whether a requested play position resulted in an invalid placement
+        positionNum: the play position the user chooses (1 - 9 based on the 3x3 2D game board)
+        currentPos: Position struct that represents a row and column coordinate
         table: the current 2D array TicTacToe game board
 */
 
-void UpdateBoard(char currentTurn, int positionNum, int &numRounds, bool &invalidSpot, char table[][3]) {
-    Position currentPos = {GetPosition(positionNum)};
-    invalidSpot = false;
+void ValidatePosition(int &positionNum, Position &currentPos, char table[][3]) {
+    bool validPlacement = false;
 
-    // if the player's requested position is the same as a spot that is already occupied, the spot is invalid
-    if(table[currentPos.row][currentPos.column] == 'X' || table[currentPos.row][currentPos.column] == 'O')
-        invalidSpot = true;
+    // keep looping until a valid placement is made
+    while(!validPlacement) {
+        // prompt the user to enter their position to play
+        cout << endl << "         Play Position: ";
+        cin >> positionNum;
 
-    // if the player's requested position is not 1 - 9 based on the 3x3 2D game board, the spot is invalid
-    if(positionNum < 1 || positionNum > 9)
-        invalidSpot = true;
+        // keep looping until the user enters a valid position
+        while(!cin || positionNum < 1 || positionNum > 9) {
+            // clear cin fail state and cin buffer to prevent extraneous data flowing in
+            cin.clear();
+            cin.ignore(256, '\n');
 
-    // if the spot is not invalid the user's play position is confirmed
-    if(!invalidSpot)
-        table[currentPos.row][currentPos.column] = currentTurn;
-    // else if the spot is invalid display an error message to the user and decrease rounds by 1
-    else {
-        cout << endl << "Error: You may not choose that position!" << endl;
-        numRounds--;
+            cout << endl << "Error: You must enter a valid position!" << endl;
+
+            // prompt the user to enter their position to play
+            cout << endl << "         Play Position: ";
+            cin >> positionNum;
+        }
+
+        currentPos = GetPosition(positionNum);
+
+        if(table[currentPos.row][currentPos.column] == 'X' || table[currentPos.row][currentPos.column] == 'O')
+            cout << endl << "Error: You may not choose a position that is taken!" << endl;
+        else
+            validPlacement = true;
+
+        // clear cin buffer to prevent extraneous data from entering
+        cin.ignore(256, '\n');
     }
 }
 
@@ -171,14 +177,14 @@ void UpdateBoard(char currentTurn, int positionNum, int &numRounds, bool &invali
     GetPosition will locate the row and column number that corresponds to the 2D array TicTacToe game board based
     on the play position the user requested.
     Parameters:
-        positionNum: The requested play position the user chose (1 - 9 based on the 3x3 2D game board)
+        positionNum: the requested play position the user chose (1 - 9 based on the 3x3 2D game board)
     Return Value: Position struct that represents a row and column coordinate
 */
 
-Position GetPosition(int positionNum) {
+Position GetPosition(const int positionNum) {
     Position currentPos = {};
-    
-    switch (positionNum) {
+
+    switch(positionNum) {
         case 1:
             currentPos.row = 0, currentPos.column = 0;
             break;
@@ -303,21 +309,10 @@ bool PlayAgain() {
     if(choice == 'N' || choice == 'n')
         playAgain = false;
 
+    // clear cin buffer to prevent extraneous data from entering
+    cin.ignore(256, '\n');
+
     return playAgain;
-}
-
-/* ================================================================ */
-
-/*
-    ResetBoard resets the game board to empty positions.
-    Parameters:
-        table: the current 2D array TicTacToe game board
-*/
-
-void ResetBoard(char table[][3]) {
-    for(int row = 0; row < 3; row++)
-        for(int column = 0; column < 3; column++)
-            table[row][column] = ' ';
 }
 
 /* ================================================================ */
@@ -327,6 +322,7 @@ void ResetBoard(char table[][3]) {
 */
 
 void PrintOutro() {
+    cout << endl;
     cout << "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=" << endl;
     cout << "          Thanks for playing!          " << endl;
     cout << "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=" << endl;
